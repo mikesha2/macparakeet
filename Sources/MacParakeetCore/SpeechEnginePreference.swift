@@ -362,9 +362,10 @@ public enum ParakeetModelVariant: String, CaseIterable, Codable, Sendable {
     /// fine-tune of Parakeet TDT 0.6B v2 for clinical dialogue. Same
     /// architecture, tokenizer, and CoreML component contract as `v2`, so it
     /// runs on the shared TDT `AsrManager` as `AsrModelVersion.v2` — only the
-    /// weights differ. Unlike the stock builds it has no FluidAudio download
-    /// repo: the CoreML bundle is converted offline and installed locally
-    /// (see ``usesLocalInstallOnly`` and `OmiMedParakeetModel`).
+    /// weights differ. Unlike the stock builds it is not served by
+    /// FluidAudio's downloader: `OmiMedParakeetModel` downloads and loads the
+    /// CoreML bundle from its own HuggingFace repo (see
+    /// ``usesCustomModelStore``).
     case omiMedV1 = "omi-med-v1"
 
     /// Short label for the variant's language posture.
@@ -421,11 +422,13 @@ public enum ParakeetModelVariant: String, CaseIterable, Codable, Sendable {
     /// path; it is the single predicate every TDT-only site guards on.
     public var usesUnifiedEngine: Bool { self == .unified }
 
-    /// Whether this variant's CoreML bundle is installed locally rather than
-    /// downloaded from a FluidAudio HuggingFace repo. Download and auto-fetch
-    /// paths must skip these variants — falling back to a stock download would
-    /// silently swap in the wrong weights.
-    public var usesLocalInstallOnly: Bool { self == .omiMedV1 }
+    /// Whether this variant's CoreML bundle is downloaded and loaded by
+    /// MacParakeet's own model store (`OmiMedParakeetModel`) rather than
+    /// FluidAudio's `DownloadUtils`/`AsrModels` path. FluidAudio only knows
+    /// its own repos, and its corrupt-cache recovery re-downloads the *stock*
+    /// weights — which would silently replace the fine-tune — so every
+    /// download/cache/load/delete site must dispatch on this predicate first.
+    public var usesCustomModelStore: Bool { self == .omiMedV1 }
 
     public var alternative: ParakeetModelVariant {
         switch self {

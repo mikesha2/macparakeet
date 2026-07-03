@@ -34,7 +34,7 @@ struct ConfigCommand: ParsableCommand {
           parakeet-model            v3|v2|unified|omi-med-v1        default: v3
                                     (v3=supported languages, v2=English
                                     timestamps, unified=English no timestamps,
-                                    omi-med-v1=English medical, local install)
+                                    omi-med-v1=English medical)
           nemotron-model            multilingual-1120ms|            default: multilingual-1120ms
                                     english-1120ms (Beta streaming)
           nemotron-language         auto|<Nemotron language code>   default: auto
@@ -95,9 +95,9 @@ struct ConfigCommand: ParsableCommand {
         ),
         CLIConfigKeySpec(
             key: "parakeet-model",
-            valueSyntax: "v3|v2|unified",
-            allowedValues: ["v3", "v2", "unified"],
-            summary: "Default Parakeet build: v3 supported languages, v2 English timestamps, or Unified readable English without timestamps."
+            valueSyntax: "v3|v2|unified|omi-med-v1",
+            allowedValues: ["v3", "v2", "unified", "omi-med-v1"],
+            summary: "Default Parakeet build: v3 supported languages, v2 English timestamps, Unified readable English without timestamps, or Omi Med English medical."
         ),
         CLIConfigKeySpec(
             key: "nemotron-model",
@@ -552,7 +552,7 @@ struct ConfigCommand: ParsableCommand {
         case "omi-med-v1", "omi-med", "medical", "med":
             return .omiMedV1
         default:
-            throw ValidationError("Invalid value for parakeet-model: '\(value)'. Use v3 (multilingual), v2 (English-only), unified (English-only with punctuation/capitalization), or omi-med-v1 (English medical, requires local install).")
+            throw ValidationError("Invalid value for parakeet-model: '\(value)'. Use v3 (multilingual), v2 (English-only), unified (English-only with punctuation/capitalization), or omi-med-v1 (English medical).")
         }
     }
 

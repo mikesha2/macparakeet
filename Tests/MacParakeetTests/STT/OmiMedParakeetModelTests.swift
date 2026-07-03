@@ -86,4 +86,40 @@ final class OmiMedParakeetModelTests: XCTestCase {
         let path = OmiMedParakeetModel.modelDirectory().path
         XCTAssertTrue(path.hasSuffix("FluidAudio/Models/\(OmiMedParakeetModel.folderName)"))
     }
+
+    func testBundleFilesSelectsComponentTreesAndVocabOnly() throws {
+        // Mirrors the HuggingFace tree API shape. Repo housekeeping (README,
+        // .gitattributes) and directory entries must not be downloaded.
+        let manifestJSON = """
+            [
+              {"type": "file", "path": ".gitattributes", "size": 1519},
+              {"type": "file", "path": "README.md", "size": 4872},
+              {"type": "directory", "path": "Encoder.mlmodelc"},
+              {"type": "file", "path": "Encoder.mlmodelc/weights/weight.bin", "size": 1198547712,
+               "lfs": {"oid": "abc123"}},
+              {"type": "file", "path": "Encoder.mlmodelc/model.mil", "size": 960148},
+              {"type": "file", "path": "Decoder.mlmodelc/coremldata.bin", "size": 554,
+               "lfs": {"oid": "def456"}},
+              {"type": "file", "path": "parakeet_vocab.json", "size": 16543}
+            ]
+            """
+        let manifest = try JSONDecoder().decode(
+            [OmiMedParakeetModel.ManifestEntry].self, from: Data(manifestJSON.utf8))
+
+        let files = OmiMedParakeetModel.bundleFiles(in: manifest)
+        XCTAssertEqual(
+            Set(files.map(\.path)),
+            [
+                "Encoder.mlmodelc/weights/weight.bin",
+                "Encoder.mlmodelc/model.mil",
+                "Decoder.mlmodelc/coremldata.bin",
+                "parakeet_vocab.json",
+            ]
+        )
+        // LFS sha256 digests ride along for download verification.
+        XCTAssertEqual(
+            files.first { $0.path == "Encoder.mlmodelc/weights/weight.bin" }?.lfs?.oid,
+            "abc123"
+        )
+    }
 }

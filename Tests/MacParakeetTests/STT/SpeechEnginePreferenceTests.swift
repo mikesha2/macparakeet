@@ -225,13 +225,14 @@ final class SpeechEnginePreferenceTests: XCTestCase {
         XCTAssertFalse(ParakeetModelVariant.omiMedV1.usesUnifiedEngine)
     }
 
-    func testOmiMedIsLocalInstallOnly() {
-        // Download/auto-fetch paths must skip Omi Med: falling back to a stock
-        // v2 download would silently swap in the wrong weights.
-        XCTAssertTrue(ParakeetModelVariant.omiMedV1.usesLocalInstallOnly)
-        XCTAssertFalse(ParakeetModelVariant.v2.usesLocalInstallOnly)
-        XCTAssertFalse(ParakeetModelVariant.v3.usesLocalInstallOnly)
-        XCTAssertFalse(ParakeetModelVariant.unified.usesLocalInstallOnly)
+    func testOmiMedUsesTheCustomModelStore() {
+        // Every download/cache/load/delete site must dispatch Omi Med to
+        // OmiMedParakeetModel: FluidAudio's path only knows its own repos and
+        // its corrupt-cache recovery would silently swap in stock v2 weights.
+        XCTAssertTrue(ParakeetModelVariant.omiMedV1.usesCustomModelStore)
+        XCTAssertFalse(ParakeetModelVariant.v2.usesCustomModelStore)
+        XCTAssertFalse(ParakeetModelVariant.v3.usesCustomModelStore)
+        XCTAssertFalse(ParakeetModelVariant.unified.usesCustomModelStore)
     }
 
     func testOmiMedIsEnglishOnlyAndListed() {

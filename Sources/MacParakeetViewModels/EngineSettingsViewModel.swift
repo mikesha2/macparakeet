@@ -193,7 +193,7 @@ public final class EngineSettingsViewModel {
             CohereTranscribeEngine.hasModelCacheDirectory()
         },
         deleteParakeetModelOnDisk: @escaping @Sendable (ParakeetModelVariant) -> Bool = {
-            if $0.usesLocalInstallOnly { return STTRuntime.deleteOmiMedParakeetModel() }
+            if $0.usesCustomModelStore { return STTRuntime.deleteOmiMedParakeetModel() }
             if $0.usesUnifiedEngine { return ParakeetUnifiedEngine.deleteModel() }
             guard let version = $0.asrModelVersion else { return false }
             return STTRuntime.deleteParakeetModel(version: version)

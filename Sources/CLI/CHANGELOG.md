@@ -95,9 +95,12 @@ by checking exit code first: `2` = misuse, `1` = runtime, `0` = success.
   fine-tune of Parakeet TDT 0.6B v2): accepted by `config set parakeet-model`,
   `transcribe --parakeet-model`, `retranscribe --parakeet-model`, and the
   `models` commands as `parakeet-omi-med-v1` (aliases `parakeet-omi-med`,
-  `parakeet-medical`). The build is local-install-only — `models download`
-  and `models select` fail with install guidance when the converted CoreML
-  bundle is not present (see `Sources/MacParakeetCore/STT/README.md`).
+  `parakeet-medical`). Like the stock builds it downloads on first use
+  (~1.1 GB, from `huggingface.co/cmsha/omi-med-stt-v1-coreml`) and can be
+  pre-fetched with `models download parakeet-omi-med-v1`. Provided as-is at
+  the user's own risk: users handling patient speech are responsible for
+  their own HIPAA/patient-privacy compliance and should check institutional
+  policy first (see `Sources/MacParakeetCore/STT/README.md`).
 - Added `retranscribe <record> --update` to rerun STT against retained source
   audio for an existing saved dictation, transcription, or meeting in place.
   Records resolve by UUID/prefix, with exact transcription/meeting title

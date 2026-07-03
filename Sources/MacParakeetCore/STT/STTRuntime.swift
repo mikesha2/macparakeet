@@ -1103,16 +1103,10 @@ public actor STTRuntime: STTRuntimeProtocol {
         do {
             onProgress?("Preparing \(variant.modelName)...")
             // Download the target build first so the current model keeps serving
-            // until the fetch completes. Unified and TDT live in different repos.
-            // Local-install-only builds (Omi Med) have nothing to download —
-            // fail fast with install guidance so the current model keeps serving.
-            if variant.usesLocalInstallOnly {
-                guard OmiMedParakeetModel.isInstalled() else {
-                    throw STTError.modelNotInstalled(
-                        "\(variant.modelName) is not installed. Install the converted CoreML bundle at "
-                            + "\(OmiMedParakeetModel.modelDirectory().path)."
-                    )
-                }
+            // until the fetch completes. Unified and TDT live in different
+            // FluidAudio repos; Omi Med downloads through its own store.
+            if variant.usesCustomModelStore {
+                try await OmiMedParakeetModel.downloadModel(onProgress: onProgress)
             } else if variant.usesUnifiedEngine {
                 try await ParakeetUnifiedEngine.downloadModel(onProgress: onProgress)
             } else if let targetVersion = variant.asrModelVersion {
@@ -1288,13 +1282,13 @@ public actor STTRuntime: STTRuntimeProtocol {
     }
 
     /// Variant-keyed on-disk presence check. Dispatches the Unified build to
-    /// ``ParakeetUnifiedEngine`` and the local-install-only Omi Med build to
+    /// ``ParakeetUnifiedEngine`` and the custom-store Omi Med build to
     /// ``OmiMedParakeetModel``; the stock TDT builds use the version-keyed
     /// FluidAudio cache. Prefer this over `isModelCached(version:)` whenever a
     /// `ParakeetModelVariant` is in hand — the version-keyed check cannot
     /// distinguish Omi Med from stock v2.
     public nonisolated static func isParakeetModelCached(variant: ParakeetModelVariant) -> Bool {
-        if variant.usesLocalInstallOnly {
+        if variant.usesCustomModelStore {
             return OmiMedParakeetModel.isInstalled()
         }
         if variant.usesUnifiedEngine {
@@ -1304,7 +1298,7 @@ public actor STTRuntime: STTRuntimeProtocol {
         return isModelCached(version: version)
     }
 
-    /// Deletes the local-install-only Omi Med bundle, mirroring
+    /// Deletes the custom-store Omi Med bundle, mirroring
     /// ``deleteParakeetModel(version:)``'s telemetry so model deletions report
     /// through the same `model_operation` channel. Pure file work — callers
     /// must not delete the build currently loaded by the active engine.
@@ -1721,10 +1715,14 @@ public actor STTRuntime: STTRuntimeProtocol {
             let progressHandler = Self.makeDownloadProgressHandler(warmUpProgressHandler)
 
             let downloadedModels: AsrModels
-            if variant.usesLocalInstallOnly {
-                // Local-install-only builds (Omi Med) never touch FluidAudio's
+            if variant.usesCustomModelStore {
+                // Custom-store builds (Omi Med) never touch FluidAudio's
                 // download-or-load path: its corrupt-cache recovery re-downloads
                 // the *stock* weights, which would silently drop the fine-tune.
+                // Mirror stock behavior instead: fetch on first use, then load.
+                if !OmiMedParakeetModel.isInstalled() {
+                    try await OmiMedParakeetModel.downloadModel(onProgress: warmUpProgressHandler)
+                }
                 warmUpProgressHandler?("Loading \(variant.modelName) with Core ML...")
                 downloadedModels = try await OmiMedParakeetModel.load()
             } else {

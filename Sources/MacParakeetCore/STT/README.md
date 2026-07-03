@@ -74,24 +74,23 @@ to one `STTRuntime`; callers do not own model lifecycles directly.
 - `NativeLiveDictating.swift` — internal protocol the native streaming engines
   conform to so `STTRuntime` can route a live dictation session to the active
   Nemotron or Parakeet Unified build without knowing the concrete engine type.
-- `OmiMedParakeetModel.swift` — loader for the Omi Med STT v1 bundle
-  (`omi-health/omi-med-stt-v1`), an English medical fine-tune of Parakeet TDT
-  0.6B v2 selected via `ParakeetModelVariant.omiMedV1`. Identical architecture,
-  tokenizer, and CoreML component contract to stock v2, so it drives the shared
-  TDT `AsrManager` as `AsrModelVersion.v2` — only the weights differ. It is
-  **local-install-only**: there is no FluidAudio HuggingFace repo, so nothing
-  in the app or CLI downloads it, and the loader never touches FluidAudio's
-  download-or-load path (whose corrupt-cache recovery would silently replace
-  the fine-tune with stock v2 weights). Installing the bundle — the easy path
-  is the pre-converted CoreML release at
-  [`cmsha/omi-med-stt-v1-coreml`](https://huggingface.co/cmsha/omi-med-stt-v1-coreml):
-
-  ```bash
-  hf download cmsha/omi-med-stt-v1-coreml \
-    --local-dir ~/Library/Application\ Support/FluidAudio/Models/omi-med-stt-v1-coreml
-  ```
-
-  To reproduce the conversion from the source checkpoint instead:
+- `OmiMedParakeetModel.swift` — download + load store for the Omi Med STT v1
+  bundle (`omi-health/omi-med-stt-v1`), an English medical fine-tune of
+  Parakeet TDT 0.6B v2 selected via `ParakeetModelVariant.omiMedV1`. Identical
+  architecture, tokenizer, and CoreML component contract to stock v2, so it
+  drives the shared TDT `AsrManager` as `AsrModelVersion.v2` — only the
+  weights differ. It is served by MacParakeet's **own model store**
+  (`usesCustomModelStore`), not FluidAudio's: the compiled bundle downloads on
+  first use from
+  [`cmsha/omi-med-stt-v1-coreml`](https://huggingface.co/cmsha/omi-med-stt-v1-coreml)
+  (~1.1 GB; manifest via the HF tree API, per-file sha256 verification for
+  LFS-tracked weights, staged-then-moved so a torn download never masquerades
+  as an install) into
+  `~/Library/Application Support/FluidAudio/Models/omi-med-stt-v1-coreml/`.
+  Neither download nor load ever touches FluidAudio's download-or-load path —
+  its corrupt-cache recovery re-downloads the *stock* v2 weights, which would
+  silently replace the medical fine-tune. To reproduce the conversion from
+  the source checkpoint:
   1. Download `omimedstt-v1.nemo` from `huggingface.co/omi-health/omi-med-stt-v1`.
   2. Run the FluidInference `mobius` parakeet-tdt-v2 CoreML export against it
      (`models/stt/parakeet-tdt-v2-0.6b/coreml/convert-parakeet.py --nemo-path …`),
@@ -103,11 +102,17 @@ to one `STTRuntime`; callers do not own model lifecycles directly.
      v2 joint is the fused *single-step* decision head).
   4. Export the tokenizer as dict-format `parakeet_vocab.json`
      (`{"<token_id>": "<piece>"}`, 1024 tokens, blank id 1024).
-  5. Place all five artifacts (~1.1 GB) in
-     `~/Library/Application Support/FluidAudio/Models/omi-med-stt-v1-coreml/`.
-  Settings shows the build only while installed (or selected); the CLI accepts
-  `parakeet-omi-med-v1` and fails selection/download with this guidance when
-  the bundle is missing.
+
+  **Medical-use disclaimer.** Omi Med STT v1 is provided as-is, at the user's
+  own risk, with no warranty of transcription accuracy. It is not a medical
+  device and its transcripts require human review. Anyone using it with
+  patient speech or other protected health information is responsible for
+  their own HIPAA (or local equivalent) and patient-privacy compliance and
+  should check institutional policy before use; neither MacParakeet nor the
+  model's converter/publisher accepts responsibility for such violations.
+  MacParakeet's local-first posture helps (audio and transcripts stay
+  on-device), but on-device processing alone does not make a workflow
+  compliant.
 
 **Hotkey state (lives here for testability)**
 - `FnKeyStateMachine.swift` — pure state machine for legacy combined

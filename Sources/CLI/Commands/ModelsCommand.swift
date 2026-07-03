@@ -380,7 +380,7 @@ func parakeetDownloadVariant(
 /// build to ``ParakeetUnifiedEngine`` (it has no `AsrModelVersion`); the TDT
 /// builds use the shared `AsrManager` cache.
 func isParakeetVariantCached(_ variant: ParakeetModelVariant) -> Bool {
-    if variant.usesLocalInstallOnly {
+    if variant.usesCustomModelStore {
         return OmiMedParakeetModel.isInstalled()
     }
     if variant.usesUnifiedEngine {
@@ -391,10 +391,10 @@ func isParakeetVariantCached(_ variant: ParakeetModelVariant) -> Bool {
 }
 
 /// Deletes the on-disk model for `variant`, dispatching Unified and the
-/// local-install-only Omi Med build to their own stores.
+/// custom-store Omi Med build to their own stores.
 @discardableResult
 func deleteParakeetVariant(_ variant: ParakeetModelVariant) -> Bool {
-    if variant.usesLocalInstallOnly {
+    if variant.usesCustomModelStore {
         return STTRuntime.deleteOmiMedParakeetModel()
     }
     if variant.usesUnifiedEngine {
@@ -404,23 +404,15 @@ func deleteParakeetVariant(_ variant: ParakeetModelVariant) -> Bool {
     return STTRuntime.deleteParakeetModel(version: version)
 }
 
-/// Downloads the on-disk model for `variant`, dispatching Unified to its own
-/// engine. Local-install-only builds (Omi Med) have no download repo — fail
-/// with install guidance instead of silently fetching the wrong weights.
+/// Downloads the on-disk model for `variant`, dispatching Unified and the
+/// custom-store Omi Med build to their own stores.
 func downloadParakeetVariant(
     _ variant: ParakeetModelVariant,
     onProgress: @escaping @Sendable (String) -> Void
 ) async throws {
-    if variant.usesLocalInstallOnly {
-        if OmiMedParakeetModel.isInstalled() {
-            onProgress("\(variant.modelName) is already installed.")
-            return
-        }
-        throw ValidationError(
-            "\(variant.modelName) has no in-app download. Convert the model offline and install "
-                + "the CoreML bundle at \(OmiMedParakeetModel.modelDirectory().path) "
-                + "(see Sources/MacParakeetCore/STT/README.md)."
-        )
+    if variant.usesCustomModelStore {
+        try await OmiMedParakeetModel.downloadModel(onProgress: onProgress)
+        return
     }
     if variant.usesUnifiedEngine {
         _ = try await ParakeetUnifiedEngine.downloadModel(onProgress: onProgress)
@@ -806,20 +798,6 @@ func validateSelectableSpeechModelDownload(
     isWhisperModelDownloaded: ((String) -> Bool)? = nil,
     isCohereModelDownloaded: (() -> Bool)? = nil
 ) throws {
-    // Stock Parakeet builds download on first use, so selection is never
-    // gated on presence. Local-install-only builds (Omi Med) cannot be
-    // fetched later — selecting one without its bundle would strand the STT
-    // stack, so require the install up front.
-    if let parakeetVariant = selection.parakeetVariant,
-        parakeetVariant.usesLocalInstallOnly,
-        !isParakeetVariantCached(parakeetVariant) {
-        throw ValidationError(
-            "\(parakeetVariant.modelName) is not installed. Install the converted CoreML bundle at "
-                + "\(OmiMedParakeetModel.modelDirectory().path) first "
-                + "(see Sources/MacParakeetCore/STT/README.md)."
-        )
-    }
-
     if let nemotronVariant = selection.nemotronVariant {
         let language = SpeechEnginePreference.nemotronDefaultLanguage(defaults: defaults)
         let downloaded = (isNemotronModelDownloaded ?? { variant, language in
